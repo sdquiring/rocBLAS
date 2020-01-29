@@ -492,16 +492,6 @@ pushd .
     cmake_common_options="${cmake_common_options} -DTensile_TEST_LOCAL_PATH=${tensile_test_local_path}"
   fi
 
-<<<<<<< HEAD
-
-case "${ID}" in
-  centos|rhel)
-  cmake_common_options="${cmake_common_options} -DCMAKE_FIND_ROOT_PATH=/usr/lib64/llvm7.0/lib/cmake/"
-  ;;
-esac
-
-  # clients
-=======
   if [[ "${skip_ld_conf_entry}" == true ]]; then
     cmake_common_options="${cmake_common_options} -DROCM_DISABLE_LDCONFIG=ON"
   fi
@@ -526,7 +516,6 @@ esac
   cmake_common_options="${cmake_common_options} ${tensile_opt}"
 
 
->>>>>>> 8b26a6cb53d6c0a382aee0a5b095830f4f6d261d
   if [[ "${build_clients}" == true ]]; then
     cmake_client_options="${cmake_client_options} -DBUILD_CLIENTS_SAMPLES=ON -DBUILD_CLIENTS_TESTS=ON -DBUILD_CLIENTS_BENCHMARKS=ON -DLINK_BLIS=${LINK_BLIS}"
   fi
