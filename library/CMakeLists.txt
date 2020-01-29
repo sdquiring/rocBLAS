@@ -1,5 +1,5 @@
 # ########################################################################
-# Copyright 2016-2019 Advanced Micro Devices, Inc.
+# Copyright 2016-2020 Advanced Micro Devices, Inc.
 # ########################################################################
 
 # The following helper functions wrap common cmake functions.  They are
@@ -20,6 +20,9 @@ function( target_compile_features target_name )
     _target_compile_features( ${target_name} ${ARGN} )
   endif( )
 endfunction( )
+
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
 # ########################################################################
 # target_link_libraries() override
@@ -66,9 +69,11 @@ if( BUILD_VERBOSE )
   message( STATUS "rocfft_VERSION: ${rocfft_VERSION}" )
   message( STATUS "\t==>CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}" )
   message( STATUS "\t==>BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}" )
+  message( STATUS "\t==>ROCM_PATH link: " ${ROCM_PATH} )
   message( STATUS "\t==>CMAKE_INSTALL_PREFIX link: " ${CMAKE_INSTALL_PREFIX} )
   message( STATUS "\t==>CMAKE_MODULE_PATH link: " ${CMAKE_MODULE_PATH} )
   message( STATUS "\t==>CMAKE_PREFIX_PATH link: " ${CMAKE_PREFIX_PATH} )
+  message( STATUS "\t==>CPACK_PACKAGING_INSTALL_PREFIX link: " ${CPACK_PACKAGING_INSTALL_PREFIX} )
   message( STATUS "==============" )
   message( STATUS "\t==>CMAKE_CXX_COMPILER: " ${CMAKE_CXX_FLAGS} )
   message( STATUS "\t==>CMAKE_CXX_COMPILER debug: " ${CMAKE_CXX_FLAGS_DEBUG} )
@@ -121,12 +126,15 @@ add_subdirectory( src )
 # endif( )
 
 # Package specific CPACK vars
-set( CPACK_DEBIAN_PACKAGE_DEPENDS "hip_hcc (>= 1.3)" )
-set( CPACK_RPM_PACKAGE_REQUIRES "hip_hcc >= 1.3" )
+if( NOT CXX_VERSION_STRING MATCHES "clang" )
+    set( CPACK_DEBIAN_PACKAGE_DEPENDS "rocm-dev (>= 2.5.27)" )
+    set( CPACK_RPM_PACKAGE_REQUIRES "rocm-dev >= 2.5.27" )
+endif()
+
 set( CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.md" )
 
 if( NOT CPACK_PACKAGING_INSTALL_PREFIX )
-  set( CPACK_PACKAGING_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}" )
+  set( CPACK_PACKAGING_INSTALL_PREFIX ${ROCM_PATH} )
 endif( )
 
 set( CPACK_RPM_EXCLUDE_FROM_AUTO_FILELIST_ADDITION "\${CPACK_PACKAGING_INSTALL_PREFIX}" "\${CPACK_PACKAGING_INSTALL_PREFIX}/include" "\${CPACK_PACKAGING_INSTALL_PREFIX}/lib" )

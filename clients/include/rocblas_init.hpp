@@ -1,5 +1,5 @@
 /* ************************************************************************
- * Copyright 2018-2019 Advanced Micro Devices, Inc.
+ * Copyright 2018-2020 Advanced Micro Devices, Inc.
  * ************************************************************************ */
 
 #ifndef ROCBLAS_INIT_H_
@@ -19,7 +19,7 @@
 
 // Initialize vector with random values
 template <typename T>
-inline void rocblas_init(
+void rocblas_init(
     std::vector<T>& A, size_t M, size_t N, size_t lda, size_t stride = 0, size_t batch_count = 1)
 {
     for(size_t i_batch = 0; i_batch < batch_count; i_batch++)
@@ -28,8 +28,19 @@ inline void rocblas_init(
                 A[i + j * lda + i_batch * stride] = random_generator<T>();
 }
 
+// Initialize vector with random values
 template <typename T>
-inline void rocblas_init_sin(
+inline void
+    rocblas_init(T* A, size_t M, size_t N, size_t lda, size_t stride = 0, size_t batch_count = 1)
+{
+    for(size_t i_batch = 0; i_batch < batch_count; i_batch++)
+        for(size_t i = 0; i < M; ++i)
+            for(size_t j = 0; j < N; ++j)
+                A[i + j * lda + i_batch * stride] = random_generator<T>();
+}
+
+template <typename T>
+void rocblas_init_sin(
     std::vector<T>& A, size_t M, size_t N, size_t lda, size_t stride = 0, size_t batch_count = 1)
 {
     for(size_t i_batch = 0; i_batch < batch_count; i_batch++)
@@ -46,7 +57,7 @@ inline void rocblas_init_sin(
 // arithmetic where the exponent has only 5 bits, and the
 // mantissa 10 bits.
 template <typename T>
-inline void rocblas_init_alternating_sign(
+void rocblas_init_alternating_sign(
     std::vector<T>& A, size_t M, size_t N, size_t lda, size_t stride = 0, size_t batch_count = 1)
 {
     for(size_t i_batch = 0; i_batch < batch_count; i_batch++)
@@ -59,7 +70,7 @@ inline void rocblas_init_alternating_sign(
 }
 
 template <typename T>
-inline void rocblas_init_cos(
+void rocblas_init_cos(
     std::vector<T>& A, size_t M, size_t N, size_t lda, size_t stride = 0, size_t batch_count = 1)
 {
     for(size_t i_batch = 0; i_batch < batch_count; i_batch++)
@@ -71,7 +82,7 @@ inline void rocblas_init_cos(
 /*! \brief  symmetric matrix initialization: */
 // for real matrix only
 template <typename T>
-inline void rocblas_init_symmetric(std::vector<T>& A, size_t N, size_t lda)
+void rocblas_init_symmetric(std::vector<T>& A, size_t N, size_t lda)
 {
     for(size_t i = 0; i < N; ++i)
         for(size_t j = 0; j <= i; ++j)
@@ -84,11 +95,47 @@ inline void rocblas_init_symmetric(std::vector<T>& A, size_t N, size_t lda)
         }
 }
 
+/*! \brief  symmetric matrix initialization: */
+template <typename T>
+void rocblas_init_symmetric(T* A, size_t N, size_t lda, size_t stride = 0, size_t batch_count = 1)
+{
+    for(size_t b = 0; b < batch_count; ++b)
+    {
+        for(size_t i = 0; i < N; ++i)
+            for(size_t j = 0; j <= i; ++j)
+            {
+                auto value = random_generator<T>();
+                // Warning: It's undefined behavior to assign to the
+                // same array element twice in same sequence point (i==j)
+                A[b * stride + j + i * lda] = value;
+                A[b * stride + i + j * lda] = value;
+            }
+    }
+}
+
+/*! \brief  symmetric matrix clear: */
+template <typename T>
+void rocblas_clear_symmetric(
+    rocblas_fill uplo, T* A, size_t N, size_t lda, size_t stride = 0, size_t batch_count = 1)
+{
+    for(size_t b = 0; b < batch_count; ++b)
+    {
+        for(size_t i = 0; i < N; ++i)
+            for(size_t j = i + 1; j < N; ++j)
+            {
+                if(uplo == rocblas_fill_upper)
+                    A[b * stride + j + i * lda] = 0; // clear lower
+                else
+                    A[b * stride + i + j * lda] = 0; // clear upper
+            }
+    }
+}
+
 /*! \brief  hermitian matrix initialization: */
 // for complex matrix only, the real/imag part would be initialized with the same value
 // except the diagonal elment must be real
 template <typename T>
-inline void rocblas_init_hermitian(std::vector<T>& A, size_t N, size_t lda)
+void rocblas_init_hermitian(std::vector<T>& A, size_t N, size_t lda)
 {
     for(size_t i = 0; i < N; ++i)
         for(size_t j = 0; j <= i; ++j)
@@ -102,7 +149,7 @@ inline void rocblas_init_hermitian(std::vector<T>& A, size_t N, size_t lda)
 
 // Initialize vector with HPL-like random values
 template <typename T>
-inline void rocblas_init_hpl(
+void rocblas_init_hpl(
     std::vector<T>& A, size_t M, size_t N, size_t lda, size_t stride = 0, size_t batch_count = 1)
 {
     for(size_t i_batch = 0; i_batch < batch_count; i_batch++)
@@ -115,14 +162,14 @@ inline void rocblas_init_hpl(
 /*! \brief  Initialize an array with random data, with NaN where appropriate */
 
 template <typename T>
-inline void rocblas_init_nan(T* A, size_t N)
+void rocblas_init_nan(T* A, size_t N)
 {
     for(size_t i = 0; i < N; ++i)
         A[i] = T(rocblas_nan_rng());
 }
 
 template <typename T>
-inline void rocblas_init_nan(
+void rocblas_init_nan(
     std::vector<T>& A, size_t M, size_t N, size_t lda, size_t stride = 0, size_t batch_count = 1)
 {
     for(size_t i_batch = 0; i_batch < batch_count; i_batch++)
@@ -135,7 +182,7 @@ inline void rocblas_init_nan(
 /*! \brief  Packs strided_batched matricies into groups of 4 in N */
 
 template <typename T>
-inline void rocblas_packInt8(
+void rocblas_packInt8(
     std::vector<T>& A, size_t M, size_t N, size_t batch_count, size_t lda, size_t stride_a)
 {
     if(N % 4 != 0)
@@ -153,7 +200,7 @@ inline void rocblas_packInt8(
 /* ============================================================================================ */
 /*! \brief  Packs matricies into groups of 4 in N */
 template <typename T>
-inline void rocblas_packInt8(std::vector<T>& A, size_t M, size_t N, size_t lda)
+void rocblas_packInt8(std::vector<T>& A, size_t M, size_t N, size_t lda)
 {
     /* Assumes original matrix provided in column major order, where N is a multiple of 4
 

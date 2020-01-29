@@ -17,7 +17,8 @@ import yaml
 TYPE_RE = re.compile(r'[a-z_A-Z]\w*(:?\s*\*\s*\d+)?$')
 
 # Regex for integer ranges A..B[..C]
-INT_RANGE_RE = re.compile(r'\s*(-?\d+)\s*\.\.\s*(-?\d+)\s*(?:\.\.\s*(-?\d+)\s*)?$')
+INT_RANGE_RE = re.compile(
+    r'\s*(-?\d+)\s*\.\.\s*(-?\d+)\s*(?:\.\.\s*(-?\d+)\s*)?$')
 
 # Regex for include: YAML extension
 INCLUDE_RE = re.compile(r'include\s*:\s*(.*)')
@@ -189,12 +190,118 @@ def get_arguments(doc):
             for var in decl
             if TYPE_RE.match(decl[var])]
 
+def setkey_product(test, key, vals):
+    """Helper for setdefaults. Tests that all values in vals is present
+    in test, if so then sets test[key] to product of all test[vals]."""
+    if all(x in test for x in vals):
+        result = 1
+        for x in vals:
+            if x in ('incx', 'incy'):
+                result *= abs(test[x])
+            else:
+                result *= test[x]
+        test[key] = int(result)
 
 def setdefaults(test):
     """Set default values for parameters"""
     # Do not put constant defaults here -- use rocblas_common.yaml for that.
     # These are only for dynamic defaults
     # TODO: This should be ideally moved to YAML file, with eval'd expressions.
+
+    if test['function'] in ('asum_strided_batched', 'nrm2_strided_batched',
+                            'scal_strided_batched', 'swap_strided_batched',
+                            'copy_strided_batched', 'dot_strided_batched',
+                            'dotc_strided_batched', 'rot_strided_batched',
+                            'rotm_strided_batched', 'iamax_strided_batched',
+                            'iamin_strided_batched', 'axpy_strided_batched'):
+        setkey_product(test, 'stride_x', ['N', 'incx', 'stride_scale'])
+        setkey_product(test, 'stride_y', ['N', 'incy', 'stride_scale'])
+        # we are using stride_c for param in rotm
+        if all([x in test for x in ('stride_scale')]):
+            test.setdefault('stride_c', int(test['stride_scale']) * 5)
+
+    elif test['function'] in ('tpmv_strided_batched'):
+        setkey_product(test, 'stride_x', ['M', 'incx', 'stride_scale'])
+## Let's use M * M (> (M * (M+1)) / 2) as a 'stride' size for the packed format.
+        setkey_product(test, 'stride_a', ['M', 'M', 'stride_scale'])
+
+    elif test['function'] in ('trmv_strided_batched'):
+        setkey_product(test, 'stride_x', ['M', 'incx', 'stride_scale'])
+        setkey_product(test, 'stride_a', ['M', 'lda', 'stride_scale'])
+
+    elif test['function'] in ('gemv_strided_batched', 'gbmv_strided_batched',
+                              'ger_strided_batched', 'geru_strided_batched',
+                              'gerc_strided_batched', 'trsv_strided_batched'):
+        if test['function'] in ('ger_strided_batched', 'geru_strided_batched',
+                                'gerc_strided_batched','trsv_strided_batched'
+                                ) or test['transA'] in ('T', 'C'):
+            setkey_product(test, 'stride_x', ['M', 'incx', 'stride_scale'])
+            setkey_product(test, 'stride_y', ['N', 'incy', 'stride_scale'])
+        else:
+            setkey_product(test, 'stride_x', ['N', 'incx', 'stride_scale'])
+            setkey_product(test, 'stride_y', ['M', 'incy', 'stride_scale'])
+        if test['function'] in ('gbmv_strided_batched'):
+            setkey_product(test, 'stride_a', ['lda', 'N', 'stride_scale'])
+
+    elif test['function'] in ('hemv_strided_batched', 'hbmv_strided_batched'):
+        if all([x in test for x in ('N', 'incx', 'incy', 'stride_scale')]):
+            setkey_product(test, 'stride_x', ['N', 'incx', 'stride_scale'])
+            setkey_product(test, 'stride_y', ['N', 'incy', 'stride_scale'])
+            setkey_product(test, 'stride_a', ['N', 'lda', 'stride_scale'])
+
+    elif test['function'] in ('hpmv_strided_batched'):
+        if all([x in test for x in ('N', 'incx', 'incy', 'stride_scale')]):
+            setkey_product(test, 'stride_x', ['N', 'incx', 'stride_scale'])
+            setkey_product(test, 'stride_y', ['N', 'incy', 'stride_scale'])
+            ldN = int((test['N'] * (test['N'] + 1) * test['stride_scale']) / 2)
+            test.setdefault('stride_a', ldN)
+
+    elif test['function'] in ('spr_strided_batched', 'spr2_strided_batched',
+                              'hpr_strided_batched'):
+        setkey_product(test, 'stride_x', ['N', 'incx', 'stride_scale'])
+        setkey_product(test, 'stride_y', ['N', 'incy', 'stride_scale'])
+        setkey_product(test, 'stride_a', ['N', 'N', 'stride_scale'])
+
+    # we are using stride_c for arg c and stride_d for arg s in rotg
+    # these are are single values for each batch
+    elif test['function'] in ('rotg_strided_batched'):
+        if 'stride_scale' in test:
+            test.setdefault('stride_a', int(test['stride_scale']))
+            test.setdefault('stride_b', int(test['stride_scale']))
+            test.setdefault('stride_c', int(test['stride_scale']))
+            test.setdefault('stride_d', int(test['stride_scale']))
+
+    # we are using stride_a for d1, stride_b for d2, and stride_c for param in
+    # rotmg. These are are single values for each batch, except param which is
+    # a 5 element array
+    elif test['function'] in ('rotmg_strided_batched'):
+        if 'stride_scale' in test:
+            test.setdefault('stride_a', int(test['stride_scale']))
+            test.setdefault('stride_b', int(test['stride_scale']))
+            test.setdefault('stride_c', int(test['stride_scale']) * 5)
+            test.setdefault('stride_x', int(test['stride_scale']))
+            test.setdefault('stride_y', int(test['stride_scale']))
+
+    elif test['function'] in ('trsm_strided_batched',
+                              'trsm_strided_batched_ex'):
+        setkey_product(test, 'stride_b', ['N', 'ldb', 'stride_scale'])
+
+        if test['side'].upper() == 'L':
+            setkey_product(test, 'stride_a', ['M', 'lda', 'stride_scale'])
+        else:
+            setkey_product(test, 'stride_a', ['N', 'lda', 'stride_scale'])
+
+    elif test['function'] in ('tbmv_strided_batched'):
+        if all([x in test for x in ('M', 'lda', 'stride_scale')]):
+            ldM = int(test['M'] * test['lda'] * test['stride_scale'])
+            test.setdefault('stride_a', ldM)
+        if all([x in test for x in ('M', 'incx', 'stride_scale')]):
+            ldx = int(test['M'] * abs(test['incx']) * test['stride_scale'])
+            test.setdefault('stride_x', ldx)
+
+    test.setdefault('stride_x', 0)
+    test.setdefault('stride_y', 0)
+
     if test['transA'] == '*' or test['transB'] == '*':
         test.setdefault('lda', 0)
         test.setdefault('ldb', 0)
@@ -299,23 +406,31 @@ def instantiate(test):
 
         # For enum arguments, replace name with value
         for typename in enum_args:
-            test[typename] = datatypes[test[typename]]
+            if test[typename] in datatypes:
+                test[typename] = datatypes[test[typename]]
 
         # Match known bugs
         if test['category'] not in ('known_bug', 'disabled'):
             for bug in param['known_bugs']:
                 for key, value in bug.items():
+                    if key == 'known_bug_platforms':
+                        continue
                     if key not in test:
                         break
                     if key == 'function':
                         if not fnmatchcase(test[key], value):
                             break
                     # For keys declared as enums, compare resulting values
-                    elif test[key] != (datatypes.get(value) if key in enum_args
-                                       else value):
+                    elif test[key] != (datatypes.get(value, value)
+                                       if key in enum_args else value):
                         break
                 else:  # All values specified in known bug match test case
-                    test['category'] = 'known_bug'
+                    if (bug.get('known_bug_platforms', '').
+                            strip(' :,\f\n\r\t\v')):
+                        test['category'] = ('known_bug_platforms_' +
+                                            test['category'])
+                    else:
+                        test['category'] = 'known_bug'
                     break
 
         write_test(test)
@@ -356,8 +471,8 @@ def generate(test, function):
                 except TypeError as err:
                     sys.exit("TypeError: " + str(err) + " for " + argname +
                              ", which has type " + str(type(item)) +
-                             "\nA name listed in \"Dictionary lists to expand\" "
-                             "must be a defined as a dictionary.\n")
+                             "\nA name listed in \"Dictionary lists to "
+                             "expand\" must be a defined as a dictionary.\n")
             return
 
     for key in sorted(list(test)):

@@ -1,5 +1,5 @@
 /* ************************************************************************
- * Copyright 2018-2019 Advanced Micro Devices, Inc.
+ * Copyright 2018-2020 Advanced Micro Devices, Inc.
  * ************************************************************************ */
 
 #ifndef ROCBLAS_TEST_H_
@@ -10,6 +10,8 @@
 #include "test_cleanup.hpp"
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
+#include <functional>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -27,29 +29,6 @@
 #define EXPECT_ROCBLAS_STATUS ASSERT_EQ
 
 #else // GOOGLE_TEST
-
-inline const char* rocblas_status_to_string(rocblas_status status)
-{
-    switch(status)
-    {
-    case rocblas_status_success:
-        return "rocblas_status_success";
-    case rocblas_status_invalid_handle:
-        return "rocblas_status_invalid_handle";
-    case rocblas_status_not_implemented:
-        return "rocblas_status_not_implemented";
-    case rocblas_status_invalid_pointer:
-        return "rocblas_status_invalid_pointer";
-    case rocblas_status_invalid_size:
-        return "rocblas_status_invalid_size";
-    case rocblas_status_memory_error:
-        return "rocblas_status_memory_error";
-    case rocblas_status_internal_error:
-        return "rocblas_status_internal_error";
-    default:
-        return "<undefined rocblas_status value>";
-    }
-}
 
 inline void rocblas_expect_status(rocblas_status status, rocblas_status expect)
 {
@@ -87,19 +66,26 @@ inline void rocblas_expect_status(rocblas_status status, rocblas_status expect)
 
 #ifdef GOOGLE_TEST
 
+/* ============================================================================================ */
+// Function which matches category with test_category, accounting for known_bug_platforms
+bool match_test_category(const char* category,
+                         const char* test_category,
+                         const char* known_bug_platforms);
+
 // The tests are instantiated by filtering through the RocBLAS_Data stream
 // The filter is by category and by the type_filter() and function_filter()
 // functions in the testclass
 #define INSTANTIATE_TEST_CATEGORY(testclass, categ0ry)                                           \
-    INSTANTIATE_TEST_CASE_P(categ0ry,                                                            \
-                            testclass,                                                           \
-                            testing::ValuesIn(RocBLAS_TestData::begin([](const Arguments& arg) { \
-                                                  return !strcmp(arg.category, #categ0ry)        \
-                                                         && testclass::type_filter(arg)          \
-                                                         && testclass::function_filter(arg);     \
-                                              }),                                                \
-                                              RocBLAS_TestData::end()),                          \
-                            testclass::PrintToStringParamName());
+    INSTANTIATE_TEST_CASE_P(                                                                     \
+        categ0ry,                                                                                \
+        testclass,                                                                               \
+        testing::ValuesIn(                                                                       \
+            RocBLAS_TestData::begin([](const Arguments& arg) {                                   \
+                return testclass::type_filter(arg) && testclass::function_filter(arg)            \
+                       && match_test_category(#categ0ry, arg.category, arg.known_bug_platforms); \
+            }),                                                                                  \
+            RocBLAS_TestData::end()),                                                            \
+        testclass::PrintToStringParamName());
 
 // Instantiate all test categories
 #define INSTANTIATE_TEST_CATEGORIES(testclass)        \
@@ -107,6 +93,13 @@ inline void rocblas_expect_status(rocblas_status status, rocblas_status expect)
     INSTANTIATE_TEST_CATEGORY(testclass, pre_checkin) \
     INSTANTIATE_TEST_CATEGORY(testclass, nightly)     \
     INSTANTIATE_TEST_CATEGORY(testclass, known_bug)
+
+// Function to catch signals and exceptions as failures
+void catch_signals_and_exceptions_as_failures(const std::function<void()>& test);
+
+// Macro to call catch_signals_and_exceptions_as_failures() with a lambda expression
+#define CATCH_SIGNALS_AND_EXCEPTIONS_AS_FAILURES(test) \
+    catch_signals_and_exceptions_as_failures([&] { test; })
 
 /* ============================================================================================ */
 /*! \brief  Normalized test name to conform to Google Tests */
@@ -221,6 +214,21 @@ public:
 #endif // GOOGLE_TEST
 
 // ----------------------------------------------------------------------------
+// Normal tests which return true when converted to bool
+// ----------------------------------------------------------------------------
+struct rocblas_test_valid
+{
+    // Return true to indicate the type combination is valid, for filtering
+    virtual explicit operator bool() final
+    {
+        return true;
+    }
+
+    // Require derived class to define functor which takes (const Arguments &)
+    virtual void operator()(const Arguments&) = 0;
+};
+
+// ----------------------------------------------------------------------------
 // Error case which returns false when converted to bool. A void specialization
 // of the FILTER class template above, should be derived from this class, in
 // order to indicate that the type combination is invalid.
@@ -228,13 +236,13 @@ public:
 struct rocblas_test_invalid
 {
     // Return false to indicate the type combination is invalid, for filtering
-    explicit operator bool()
+    virtual explicit operator bool() final
     {
         return false;
     }
 
     // If this specialization is actually called, print fatal error message
-    void operator()(const Arguments&)
+    virtual void operator()(const Arguments&) final
     {
         static constexpr char msg[] = "Internal error: Test called with invalid types\n";
 

@@ -51,7 +51,7 @@ if(!dx || !dy)
 ```
 
 The general outline of the function should be:
-1. Adjust any arguments (e.g. use `float_to_half` when the data type is `rocblas_half`).
+1. Convert any scalar arguments (e.g., `alpha` and `beta`) to `double`.
 2. If the problem size arguments are invalid, use a `safe_size` to allocate arrays,
 call the rocBLAS routine with the original arguments, and verify that it returns
 `rocblas_status_invalid_size`. Return.
@@ -109,22 +109,17 @@ Make the primary definition of this class template derive from the `rocblas_test
 ```
 D. Create one or more partial specializations of the class template conditionally enabled by the type parameters matching legal combinations of types.
 
-If the first type argument is `void`, then these partial specializations must
-not apply, so that the default based on `rocblas_test_invalid` can perform the correct behavior when `void` is passed to indicate failure.
+If the first type argument is `void`, then these partial specializations must not apply, so that the default based on `rocblas_test_invalid` can perform the correct behavior when `void` is passed to indicate failure.
 
-In the partial specialzation(s), create an explicit conversion to `bool` which returns `true` in the specialization. (By contrast, `rocblas_test_invalid` returns `false` when converted to `bool`.)
+In the partial specialization(s), derive from the `rocblas_test_valid` class.
 
 In the partial specialization(s), create a functional `operator()` which takes a `const Arguments&` parameter and calls templated test functions (usually in `include/testing_*.hpp`) with the specialization's template arguments when the `arg.function` string matches the function name. If `arg.function` does not match any function related to this test, mark it as a test failure. For example:
 ```c++
  template <typename T>
  struct syr_testing<T,
-                    typename std::enable_if<
-                    std::is_same<T, float>::value ||
-                    std::is_same<T, double>::value
-                   >::type>
+                    std::enable_if_t<std::is_same<T, float>::value || std::is_same<T, double>::value>
+                   > : rocblas_test_valid
 {
-    explicit operator bool() { return true; }
-
     void operator()(const Arguments& arg)
     {
         if(!strcmp(arg.function, "syr"))
@@ -237,10 +232,11 @@ using gemm = gemm_test_template<gemm_testing, GEMM>;
 ```
 H. Pass the name created in step G to the `TEST_P` macro, along with a broad test category name that this test belongs to (so that Google Test filtering can be used to select all tests in a category).
 
-In the body following this `TEST_P` macro, call the dispatch function from step E, passing it the class from step C as a template template argument, and passing the result of `GetParam()` as an `Arguments` structure. For example:
+In the body following this `TEST_P` macro, call the dispatch function from step E, passing it the class from step C as a template template argument, passing the result of `GetParam()` as an `Arguments` structure, and wrapping the call in the `CATCH_SIGNALS_AND_EXCEPTIONS_AS_FAILURES()` macro. For example:
 ```c++
-TEST_P(gemm, blas3) { rocblas_gemm_dispatch<gemm_testing>(GetParam()); }
+TEST_P(gemm, blas3) { CATCH_SIGNALS_AND_EXCEPTIONS_AS_FAILURES(rocblas_gemm_dispatch<gemm_testing>(GetParam())); }
 ```
+The `CATCH_SIGNALS_AND_EXCEPTIONS_AS_FAILURES()` macro detects signals such as `SIGSEGV` and uncaught C++ exceptions returned from rocBLAS C APIs as failures, without terminating the test program.
 I. Call the `INSTANTIATE_TEST_CATEGORIES` macro which instantiates the Google Tests across all test categories (`quick`, `pre_checkin`, `nightly`, `known_bug`), passing it the same test name as in steps G and H. For example:
 ```c++
 INSTANTIATE_TEST_CATEGORIES(gemm);
@@ -271,7 +267,7 @@ include: blas1_gtest.yaml
 ```cmake
 add_custom_command( OUTPUT "${ROCBLAS_TEST_DATA}"
                     COMMAND ../common/rocblas_gentest.py -I ../include rocblas_gtest.yaml -o "${ROCBLAS_TEST_DATA}"
-                    DEPENDS ../common/rocblas_gentest.py rocblas_gtest.yaml ../include/rocblas_common.yaml known_bugs.yaml blas1_gtest.yaml gemm_gtest.yaml gemm_strided_batched_gtest.yaml gemv_gtest.yaml symv_gtest.yaml syr_gtest.yaml ger_gtest.yaml trsm_gtest.yaml trtri_gtest.yaml geam_gtest.yaml set_get_vector_gtest.yaml set_get_matrix_gtest.yaml
+                    DEPENDS ../common/rocblas_gentest.py rocblas_gtest.yaml ../include/rocblas_common.yaml known_bugs.yaml blas1_gtest.yaml gemm_gtest.yaml gemm_batched_gtest.yaml gemm_strided_batched_gtest.yaml gemv_gtest.yaml symv_gtest.yaml syr_gtest.yaml ger_gtest.yaml trsm_gtest.yaml trtri_gtest.yaml geam_gtest.yaml set_get_vector_gtest.yaml set_get_matrix_gtest.yaml
                     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" )
 ```
 **VI.** Add the `.cpp` file to the list of sources for `rocblas-test` in `CMakeLists.txt`. For example:

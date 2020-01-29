@@ -1,5 +1,5 @@
 # ########################################################################
-# Copyright 2016-2019 Advanced Micro Devices, Inc.
+# Copyright 2016-2020 Advanced Micro Devices, Inc.
 # ########################################################################
 
 # ########################################################################
@@ -23,69 +23,187 @@ endfunction( )
 # package_targets is used as a list of install target
 set( package_targets rocblas )
 
-# Set up Tensile  Dependency
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
+# Set up Tensile Dependency
 if( BUILD_WITH_TENSILE )
   # If we want to build a shared rocblas lib, force Tensile to build as a static lib to absorb into rocblas
   if( BUILD_SHARED_LIBS )
     set( ROCBLAS_SHARED_LIBS ON )
     set( BUILD_SHARED_LIBS OFF )
   else( )
-    list( APPEND package_targets Tensile )
+    if( BUILD_WITH_TENSILE_HOST )
+        #list( APPEND package_targets Tensile TensileHost )
+      list( APPEND package_targets TensileHost )
+    else()
+      list( APPEND package_targets Tensile )
+    endif()
   endif( )
-
-  # HACK: We include the config file directly because find_package(Tensile) is broken
-  #include( ${Tensile_TensileConfig} )
-  execute_process(COMMAND "${VIRTUALENV_HOME_DIR}/bin/TensileGetPath" OUTPUT_VARIABLE INSTALLED_TENSILE_PATH)
-  message(STATUS "TENSILE_PATH: ${INSTALLED_TENSILE_PATH}")
-  find_package(Tensile 4.11.0 EXACT REQUIRED HIP LLVM OpenMP PATHS "${INSTALLED_TENSILE_PATH}")
 
   set( Tensile_RUNTIME_LANGUAGE "HIP" )
   message( STATUS "AMDGPU_TARGETS=${AMDGPU_TARGETS}" )
+  if( BUILD_WITH_TENSILE_HOST )
+    #TODO update when this feature has been validated
+    #set( PACKAGE_TENSILE_LIBRARY ON )
+    set( PACKAGE_TENSILE_LIBRARY OFF )
+    set( USE_LEGACY_CODE OFF )
+  else()
+    set( PACKAGE_TENSILE_LIBRARY OFF )
+    set( USE_LEGACY_CODE ON )
+  endif()
   TensileCreateLibraryCmake(
       ${CMAKE_CURRENT_SOURCE_DIR}/blas3/Tensile/Logic/${Tensile_LOGIC}
       ${Tensile_RUNTIME_LANGUAGE}
       ${Tensile_COMPILER}
       ${Tensile_CODE_OBJECT_VERSION}
+      ${Tensile_ARCHITECTURE}
       ${Tensile_MERGE_FILES}
       ${Tensile_SHORT_FILENAMES}
       ${Tensile_PRINT_DEBUG}
-      Tensile_ROOT ${Tensile_ROOT}
-  )
+      ${PACKAGE_TENSILE_LIBRARY}
+      ${USE_LEGACY_CODE}
+   )
 
-  # Create a unique name for Tensile compiled for rocBLAS
-  set_target_properties( Tensile PROPERTIES OUTPUT_NAME tensile-rocblas CXX_EXTENSIONS NO )
-  target_compile_features( Tensile PRIVATE cxx_static_assert cxx_nullptr cxx_auto_type )
-  # Remove this check when we no longer build with older rocm stack(ie < 1.8.2)
-  if(TARGET hip::device)
-    target_link_libraries( Tensile PRIVATE hip::device )
+  ## Create a unique name for Tensile compiled for rocBLAS
+  #  set_target_properties( Tensile PROPERTIES OUTPUT_NAME tensile-rocblas CXX_EXTENSIONS NO )
+  # build gemm with Tensile Host library
+  if( BUILD_WITH_TENSILE_HOST )
+      # Create a unique name for Tensile compiled for rocBLAS
+      set_target_properties( TensileHost PROPERTIES OUTPUT_NAME tensile-rocblas CXX_EXTENSIONS NO )
+      #target_compile_definitions( Tensile PUBLIC USE_TENSILE_HOST )
+      target_compile_definitions( TensileHost PUBLIC USE_TENSILE_HOST )
+      #endif()
   else()
-    target_link_libraries( Tensile PRIVATE hip::hip_hcc hip::hip_device hcc::hccshared )
+    # Create a unique name for Tensile compiled for rocBLAS
+    set_target_properties( Tensile PROPERTIES OUTPUT_NAME tensile-rocblas CXX_EXTENSIONS NO )
+
+    target_compile_features( Tensile PRIVATE cxx_static_assert cxx_nullptr cxx_auto_type )
+    # Remove this check when we no longer build with older rocm stack(ie < 1.8.2)
+    if(TARGET hip::device)
+      target_link_libraries( Tensile PRIVATE hip::device )
+    else()
+      target_link_libraries( Tensile PRIVATE hip::hip_hcc hip::hip_device hcc::hccshared )
+    endif()
   endif()
 
   if( CMAKE_CXX_COMPILER MATCHES ".*/hcc$" )
     # Remove following when hcc is fixed; hcc emits following spurious warning ROCm v1.6.1
     # "clang-5.0: warning: argument unused during compilation: '-isystem /opt/rocm/include'"
-    target_compile_options( Tensile PRIVATE -Wno-unused-command-line-argument -fno-gpu-rdc -Wno-deprecated-declarations)
+    # target_compile_options( Tensile PRIVATE -Wno-unused-command-line-argument -fno-gpu-rdc -Wno-deprecated-declarations)
     foreach( target ${AMDGPU_TARGETS} )
-      target_compile_options( Tensile PRIVATE --amdgpu-target=${target} )
+      if( BUILD_WITH_TENSILE_HOST )
+          # Remove following when hcc is fixed; hcc emits following spurious warning ROCm v1.6.1
+          # "clang-5.0: warning: argument unused during compilation: '-isystem /opt/rocm/include'"
+          target_compile_options( TensileHost PRIVATE -Wno-unused-command-line-argument -fno-gpu-rdc -Wno-deprecated-declarations)
+          target_compile_options( TensileHost PRIVATE --amdgpu-target=${target} )
+      else()
+          # Remove following when hcc is fixed; hcc emits following spurious warning ROCm v1.6.1
+          # "clang-5.0: warning: argument unused during compilation: '-isystem /opt/rocm/include'"
+          target_compile_options( Tensile PRIVATE -Wno-unused-command-line-argument -fno-gpu-rdc -Wno-deprecated-declarations)
+          target_compile_options( Tensile PRIVATE --amdgpu-target=${target} )
+      endif()
     endforeach( )
   endif( )
 
   if( ROCBLAS_SHARED_LIBS )
     set( BUILD_SHARED_LIBS ON )
-    set_target_properties( Tensile PROPERTIES POSITION_INDEPENDENT_CODE ON )
+    if( BUILD_WITH_TENSILE_HOST )
+        set_target_properties( TensileHost PROPERTIES POSITION_INDEPENDENT_CODE ON )
+    else()
+      set_target_properties( Tensile PROPERTIES POSITION_INDEPENDENT_CODE ON )
+    endif()
   endif()
 
   #rocblas_gemm and rocblas_trsm require tensile
   set( Tensile_SRC
+    tensile_host.cpp
     blas3/Tensile/gemm.cpp
+    blas3/Tensile/gemm_batched.cpp
+    blas3/Tensile/gemm_strided_batched.cpp
     blas3/rocblas_trsm.cpp
+    blas3/rocblas_trsm_batched.cpp
+    blas3/rocblas_trsm_strided_batched.cpp
+    blas3/rocblas_trmm.cpp
   )
 
   set( Tensile_INC
     ${CMAKE_CURRENT_SOURCE_DIR}/blas3/Tensile
   )
-endif( )
+
+  set( rocblas_ex_source
+    blas_ex/rocblas_gemm_ex.cpp
+    blas_ex/rocblas_gemm_batched_ex.cpp
+    blas_ex/rocblas_gemm_strided_batched_ex.cpp
+  )
+
+  set( rocblas_blas3_source
+    blas3/rocblas_trtri.cpp
+    blas3/rocblas_trtri_batched.cpp
+    blas3/rocblas_trtri_strided_batched.cpp
+    blas3/rocblas_geam.cpp
+    ${Tensile_SRC}
+  )
+
+  set( rocblas_blas2_tensile_source
+    blas2/rocblas_trsv.cpp
+    blas2/rocblas_trsv_strided_batched.cpp
+    blas2/rocblas_trsv_batched.cpp
+  )
+
+endif( ) # BUILD_WITH_TENSILE
+
+set( rocblas_blas2_source
+  ${rocblas_blas2_tensile_source}
+  blas2/rocblas_gemv.cpp
+  blas2/rocblas_gemv_batched.cpp
+  blas2/rocblas_gemv_strided_batched.cpp
+  blas2/rocblas_tpmv.cpp
+  blas2/rocblas_tpmv_batched.cpp
+  blas2/rocblas_tpmv_strided_batched.cpp
+  blas2/rocblas_gbmv.cpp
+  blas2/rocblas_gbmv_batched.cpp
+  blas2/rocblas_gbmv_strided_batched.cpp
+  blas2/rocblas_trmv.cpp
+  blas2/rocblas_trmv_batched.cpp
+  blas2/rocblas_trmv_strided_batched.cpp
+  blas2/rocblas_ger.cpp
+  blas2/rocblas_ger_batched.cpp
+  blas2/rocblas_ger_strided_batched.cpp
+  blas2/rocblas_hbmv.cpp
+  blas2/rocblas_hbmv_batched.cpp
+  blas2/rocblas_hbmv_strided_batched.cpp
+  blas2/rocblas_hemv.cpp
+  blas2/rocblas_hemv_batched.cpp
+  blas2/rocblas_hemv_strided_batched.cpp
+  blas2/rocblas_hpmv.cpp
+  blas2/rocblas_hpmv_batched.cpp
+  blas2/rocblas_hpmv_strided_batched.cpp
+  blas2/rocblas_hpr.cpp
+  blas2/rocblas_hpr_batched.cpp
+  blas2/rocblas_hpr_strided_batched.cpp
+  blas2/rocblas_spr.cpp
+  blas2/rocblas_spr_batched.cpp
+  blas2/rocblas_spr_strided_batched.cpp
+  blas2/rocblas_spr2.cpp
+  blas2/rocblas_spr2_batched.cpp
+  blas2/rocblas_spr2_strided_batched.cpp
+  blas2/rocblas_syr.cpp
+  blas2/rocblas_syr_batched.cpp
+  blas2/rocblas_syr_strided_batched.cpp
+  blas2/rocblas_tbmv.cpp
+  blas2/rocblas_tbmv_batched.cpp
+  blas2/rocblas_tbmv_strided_batched.cpp
+  blas2/rocblas_sbmv.cpp
+  blas2/rocblas_sbmv_batched.cpp
+  blas2/rocblas_sbmv_strided_batched.cpp
+  blas2/rocblas_spmv.cpp
+  blas2/rocblas_spmv_batched.cpp
+  blas2/rocblas_spmv_strided_batched.cpp
+  blas2/rocblas_symv.cpp
+  blas2/rocblas_symv_batched.cpp
+  blas2/rocblas_symv_strided_batched.cpp
+)
 
 set( rocblas_auxiliary_source
   handle.cpp
@@ -93,36 +211,46 @@ set( rocblas_auxiliary_source
   buildinfo.cpp
 )
 
-set( rocblas_ex_source
-  blas_ex/rocblas_gemm_ex.cpp
-)
-
-set( rocblas_blas3_source
-  blas3/rocblas_trtri.cpp
-  blas3/rocblas_trtri_batched.cpp
-  blas3/rocblas_geam.cpp
-  ${Tensile_SRC}
-)
-
-set( rocblas_blas2_source
-  blas2/rocblas_gemv.cpp
-  blas2/rocblas_gemv_batched.cpp
-  blas2/rocblas_gemv_strided_batched.cpp
-  blas2/rocblas_trsv.cpp
-  blas2/rocblas_ger.cpp
-  blas2/rocblas_syr.cpp
-)
-
 set( rocblas_blas1_source
-  blas1/rocblas_amin.cpp
-  blas1/rocblas_amax.cpp
+  blas1/rocblas_iamin.cpp
+  blas1/rocblas_iamin_batched.cpp
+  blas1/rocblas_iamin_strided_batched.cpp
+  blas1/rocblas_iamax.cpp
+  blas1/rocblas_iamax_batched.cpp
+  blas1/rocblas_iamax_strided_batched.cpp
   blas1/rocblas_asum.cpp
+  blas1/rocblas_asum_batched.cpp
+  blas1/rocblas_asum_strided_batched.cpp
   blas1/rocblas_axpy.cpp
+  blas1/rocblas_axpy_batched.cpp
+  blas1/rocblas_axpy_strided_batched.cpp
   blas1/rocblas_copy.cpp
+  blas1/rocblas_copy_batched.cpp
+  blas1/rocblas_copy_strided_batched.cpp
   blas1/rocblas_dot.cpp
+  blas1/rocblas_dot_strided_batched.cpp
+  blas1/rocblas_dot_batched.cpp
   blas1/rocblas_nrm2.cpp
+  blas1/rocblas_nrm2_batched.cpp
+  blas1/rocblas_nrm2_strided_batched.cpp
   blas1/rocblas_scal.cpp
+  blas1/rocblas_scal_batched.cpp
+  blas1/rocblas_scal_strided_batched.cpp
   blas1/rocblas_swap.cpp
+  blas1/rocblas_rot.cpp
+  blas1/rocblas_rot_batched.cpp
+  blas1/rocblas_rot_strided_batched.cpp
+  blas1/rocblas_rotg.cpp
+  blas1/rocblas_rotg_batched.cpp
+  blas1/rocblas_rotg_strided_batched.cpp
+  blas1/rocblas_rotm.cpp
+  blas1/rocblas_rotm_batched.cpp
+  blas1/rocblas_rotm_strided_batched.cpp
+  blas1/rocblas_rotmg.cpp
+  blas1/rocblas_rotmg_batched.cpp
+  blas1/rocblas_rotmg_strided_batched.cpp
+  blas1/rocblas_swap_batched.cpp
+  blas1/rocblas_swap_strided_batched.cpp
 )
 
 prepend_path( ".." rocblas_headers_public relative_rocblas_headers_public )
@@ -137,6 +265,11 @@ add_library( rocblas
 )
 
 add_library( roc::rocblas ALIAS rocblas )
+
+# RUNPATH is set only when ROCM_RPATH is defined in the ENV
+if( DEFINED ENV{ROCM_RPATH} )
+  set ( CMAKE_SHARED_LINKER_FLAGS " -Wl,--enable-new-dtags -Wl,--rpath,$ENV{ROCM_RPATH}" )
+endif( )
 
 # Remove this check when we no longer build with older rocm stack(ie < 1.8.2)
 if(TARGET hip::device)
@@ -169,8 +302,16 @@ target_include_directories( rocblas
 # target_include_directories( rocblas SYSTEM PUBLIC ${HIP_INCLUDE_DIRS} )
 
 if( BUILD_WITH_TENSILE )
-  target_link_libraries( rocblas PRIVATE Tensile )
+  if( BUILD_WITH_TENSILE_HOST )
+      #target_link_libraries( rocblas PRIVATE Tensile TensileHost )
+    target_link_libraries( rocblas PRIVATE TensileHost )
+  else()
+    target_link_libraries( rocblas PRIVATE Tensile )
+  endif()
   target_compile_definitions( rocblas PRIVATE BUILD_WITH_TENSILE=1 )
+  if( BUILD_WITH_TENSILE_HOST )
+    target_compile_definitions( rocblas PUBLIC USE_TENSILE_HOST )
+  endif()
 endif()
 
 rocm_set_soversion( rocblas ${rocblas_SOVERSION} )
@@ -197,6 +338,14 @@ rocm_install_targets(
     ${CMAKE_BINARY_DIR}/include
   PREFIX rocblas
 )
+
+if( BUILD_WITH_TENSILE )
+  if( BUILD_WITH_TENSILE_HOST )
+    set( ROCBLAS_TENSILE_LIBRARY_DIR "\${CPACK_PACKAGING_INSTALL_PREFIX}rocblas/lib" CACHE PATH "path to tensile library" )
+    install(DIRECTORY ${CMAKE_BINARY_DIR}/Tensile/library DESTINATION ${ROCBLAS_TENSILE_LIBRARY_DIR})
+  endif()
+endif()
+
 #         PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ
 
 rocm_export_targets(
@@ -208,11 +357,16 @@ rocm_export_targets(
 
 rocm_install_symlink_subdir( rocblas )
 
+#Control for enabling or disabling header testing
+option (RUN_HEADER_TESTING "Enable or disable header testing" ${BUILD_TESTING})
+
+if(RUN_HEADER_TESTING)
 # Compilation tests to ensure that header files work independently,
 # and that public header files work across several languages
 add_custom_command(
   TARGET rocblas
   POST_BUILD
   COMMAND ${CMAKE_HOME_DIRECTORY}/header_compilation_tests.sh
-  WORKING_DIRECTORY ${CMAKE_HOME_DIRECTORY}
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
  )
+endif()

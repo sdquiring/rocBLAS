@@ -1,5 +1,5 @@
 /* ************************************************************************
- * Copyright 2018-2019 Advanced Micro Devices, Inc.
+ * Copyright 2018-2020 Advanced Micro Devices, Inc.
  *
  * ************************************************************************/
 
@@ -365,11 +365,341 @@ inline void cblas_swap(rocblas_int             n,
     cblas_zswap(n, x, incx, y, incy);
 }
 
+// rot
+
+// LAPACK fortran library functionality
+extern "C" {
+void crot_(const int*                   n,
+           rocblas_float_complex*       cx,
+           const int*                   incx,
+           rocblas_float_complex*       cy,
+           const int*                   incy,
+           const float*                 c,
+           const rocblas_float_complex* s);
+void csrot_(const int*             n,
+            rocblas_float_complex* cx,
+            const int*             incx,
+            rocblas_float_complex* cy,
+            const int*             incy,
+            const float*           c,
+            const float*           s);
+void zrot_(const int*                    n,
+           rocblas_double_complex*       cx,
+           const int*                    incx,
+           rocblas_double_complex*       cy,
+           const int*                    incy,
+           const double*                 c,
+           const rocblas_double_complex* s);
+void zdrot_(const int*              n,
+            rocblas_double_complex* cx,
+            const int*              incx,
+            rocblas_double_complex* cy,
+            const int*              incy,
+            const double*           c,
+            const double*           s);
+}
+
+template <typename T, typename U, typename V>
+inline void cblas_rot(
+    rocblas_int n, T* x, rocblas_int incx, T* y, rocblas_int incy, const U* c, const V* s);
+
+template <>
+inline void cblas_rot(rocblas_int  n,
+                      float*       x,
+                      rocblas_int  incx,
+                      float*       y,
+                      rocblas_int  incy,
+                      const float* c,
+                      const float* s)
+{
+    cblas_srot(n, x, incx, y, incy, *c, *s);
+}
+
+template <>
+inline void cblas_rot(rocblas_int   n,
+                      double*       x,
+                      rocblas_int   incx,
+                      double*       y,
+                      rocblas_int   incy,
+                      const double* c,
+                      const double* s)
+{
+    cblas_drot(n, x, incx, y, incy, *c, *s);
+}
+
+template <>
+inline void cblas_rot(rocblas_int                  n,
+                      rocblas_float_complex*       x,
+                      rocblas_int                  incx,
+                      rocblas_float_complex*       y,
+                      rocblas_int                  incy,
+                      const float*                 c,
+                      const rocblas_float_complex* s)
+{
+    crot_(&n, x, &incx, y, &incx, c, s);
+}
+
+template <>
+inline void cblas_rot(rocblas_int            n,
+                      rocblas_float_complex* x,
+                      rocblas_int            incx,
+                      rocblas_float_complex* y,
+                      rocblas_int            incy,
+                      const float*           c,
+                      const float*           s)
+{
+    csrot_(&n, x, &incx, y, &incy, c, s);
+}
+
+template <>
+inline void cblas_rot(rocblas_int                   n,
+                      rocblas_double_complex*       x,
+                      rocblas_int                   incx,
+                      rocblas_double_complex*       y,
+                      rocblas_int                   incy,
+                      const double*                 c,
+                      const rocblas_double_complex* s)
+{
+    zrot_(&n, x, &incx, y, &incy, c, s);
+}
+
+template <>
+inline void cblas_rot(rocblas_int             n,
+                      rocblas_double_complex* x,
+                      rocblas_int             incx,
+                      rocblas_double_complex* y,
+                      rocblas_int             incy,
+                      const double*           c,
+                      const double*           s)
+{
+    zdrot_(&n, x, &incx, y, &incy, c, s);
+}
+
+// rotg
+
+// LAPACK fortran library functionality
+extern "C" {
+void crotg_(rocblas_float_complex* a, rocblas_float_complex* b, float* c, rocblas_float_complex* s);
+void zrotg_(rocblas_double_complex* a,
+            rocblas_double_complex* b,
+            double*                 c,
+            rocblas_double_complex* s);
+}
+
+template <typename T, typename U>
+inline void cblas_rotg(T* a, T* b, U* c, T* s);
+
+template <>
+inline void cblas_rotg(float* a, float* b, float* c, float* s)
+{
+    cblas_srotg(a, b, c, s);
+}
+
+template <>
+inline void cblas_rotg(double* a, double* b, double* c, double* s)
+{
+    cblas_drotg(a, b, c, s);
+}
+
+template <>
+inline void cblas_rotg(rocblas_float_complex* a,
+                       rocblas_float_complex* b,
+                       float*                 c,
+                       rocblas_float_complex* s)
+{
+    crotg_(a, b, c, s);
+}
+
+template <>
+inline void cblas_rotg(rocblas_double_complex* a,
+                       rocblas_double_complex* b,
+                       double*                 c,
+                       rocblas_double_complex* s)
+{
+    zrotg_(a, b, c, s);
+}
+
+// rotm
+
+template <typename T>
+inline void cblas_rotm(rocblas_int n, T* x, rocblas_int incx, T* y, rocblas_int incy, const T* p);
+
+template <>
+inline void cblas_rotm(
+    rocblas_int n, float* x, rocblas_int incx, float* y, rocblas_int incy, const float* p)
+{
+    cblas_srotm(n, x, incx, y, incy, p);
+}
+
+template <>
+inline void cblas_rotm(
+    rocblas_int n, double* x, rocblas_int incx, double* y, rocblas_int incy, const double* p)
+{
+    cblas_drotm(n, x, incx, y, incy, p);
+}
+
+// rotmg
+
+template <typename T>
+inline void cblas_rotmg(T* d1, T* d2, T* b1, const T* b2, T* p);
+
+template <>
+inline void cblas_rotmg(float* d1, float* d2, float* b1, const float* b2, float* p)
+{
+    cblas_srotmg(d1, d2, b1, *b2, p);
+}
+
+template <>
+inline void cblas_rotmg(double* d1, double* d2, double* b1, const double* b2, double* p)
+{
+    cblas_drotmg(d1, d2, b1, *b2, p);
+}
+
 /*
  * ===========================================================================
  *    level 2 BLAS
  * ===========================================================================
  */
+
+// gbmv
+template <typename T>
+void cblas_gbmv(rocblas_operation transA,
+                rocblas_int       m,
+                rocblas_int       n,
+                rocblas_int       kl,
+                rocblas_int       ku,
+                T                 alpha,
+                T*                A,
+                rocblas_int       lda,
+                T*                x,
+                rocblas_int       incx,
+                T                 beta,
+                T*                y,
+                rocblas_int       incy);
+
+template <>
+inline void cblas_gbmv(rocblas_operation transA,
+                       rocblas_int       m,
+                       rocblas_int       n,
+                       rocblas_int       kl,
+                       rocblas_int       ku,
+                       float             alpha,
+                       float*            A,
+                       rocblas_int       lda,
+                       float*            x,
+                       rocblas_int       incx,
+                       float             beta,
+                       float*            y,
+                       rocblas_int       incy)
+{
+    cblas_sgbmv(CblasColMajor,
+                CBLAS_TRANSPOSE(transA),
+                m,
+                n,
+                kl,
+                ku,
+                alpha,
+                A,
+                lda,
+                x,
+                incx,
+                beta,
+                y,
+                incy);
+}
+
+template <>
+inline void cblas_gbmv(rocblas_operation transA,
+                       rocblas_int       m,
+                       rocblas_int       n,
+                       rocblas_int       kl,
+                       rocblas_int       ku,
+                       double            alpha,
+                       double*           A,
+                       rocblas_int       lda,
+                       double*           x,
+                       rocblas_int       incx,
+                       double            beta,
+                       double*           y,
+                       rocblas_int       incy)
+{
+    cblas_dgbmv(CblasColMajor,
+                CBLAS_TRANSPOSE(transA),
+                m,
+                n,
+                kl,
+                ku,
+                alpha,
+                A,
+                lda,
+                x,
+                incx,
+                beta,
+                y,
+                incy);
+}
+
+template <>
+inline void cblas_gbmv(rocblas_operation      transA,
+                       rocblas_int            m,
+                       rocblas_int            n,
+                       rocblas_int            kl,
+                       rocblas_int            ku,
+                       rocblas_float_complex  alpha,
+                       rocblas_float_complex* A,
+                       rocblas_int            lda,
+                       rocblas_float_complex* x,
+                       rocblas_int            incx,
+                       rocblas_float_complex  beta,
+                       rocblas_float_complex* y,
+                       rocblas_int            incy)
+{
+    cblas_cgbmv(CblasColMajor,
+                CBLAS_TRANSPOSE(transA),
+                m,
+                n,
+                kl,
+                ku,
+                &alpha,
+                A,
+                lda,
+                x,
+                incx,
+                &beta,
+                y,
+                incy);
+}
+
+template <>
+inline void cblas_gbmv(rocblas_operation       transA,
+                       rocblas_int             m,
+                       rocblas_int             n,
+                       rocblas_int             kl,
+                       rocblas_int             ku,
+                       rocblas_double_complex  alpha,
+                       rocblas_double_complex* A,
+                       rocblas_int             lda,
+                       rocblas_double_complex* x,
+                       rocblas_int             incx,
+                       rocblas_double_complex  beta,
+                       rocblas_double_complex* y,
+                       rocblas_int             incy)
+{
+    cblas_zgbmv(CblasColMajor,
+                CBLAS_TRANSPOSE(transA),
+                m,
+                n,
+                kl,
+                ku,
+                &alpha,
+                A,
+                lda,
+                x,
+                incx,
+                &beta,
+                y,
+                incy);
+}
 
 // gemv
 template <typename T>
@@ -453,6 +783,110 @@ inline void cblas_gemv(rocblas_operation       transA,
         CblasColMajor, CBLAS_TRANSPOSE(transA), m, n, &alpha, A, lda, x, incx, &beta, y, incy);
 }
 
+// tbmv
+template <typename T>
+void cblas_tbmv(rocblas_fill      uplo,
+                rocblas_operation transA,
+                rocblas_diagonal  diag,
+                rocblas_int       m,
+                rocblas_int       k,
+                T*                A,
+                rocblas_int       lda,
+                T*                x,
+                rocblas_int       incx);
+
+template <>
+inline void cblas_tbmv(rocblas_fill      uplo,
+                       rocblas_operation transA,
+                       rocblas_diagonal  diag,
+                       rocblas_int       m,
+                       rocblas_int       k,
+                       float*            A,
+                       rocblas_int       lda,
+                       float*            x,
+                       rocblas_int       incx)
+{
+    cblas_stbmv(CblasColMajor,
+                CBLAS_UPLO(uplo),
+                CBLAS_TRANSPOSE(transA),
+                CBLAS_DIAG(diag),
+                m,
+                k,
+                A,
+                lda,
+                x,
+                incx);
+}
+
+template <>
+inline void cblas_tbmv(rocblas_fill      uplo,
+                       rocblas_operation transA,
+                       rocblas_diagonal  diag,
+                       rocblas_int       m,
+                       rocblas_int       k,
+                       double*           A,
+                       rocblas_int       lda,
+                       double*           x,
+                       rocblas_int       incx)
+{
+    cblas_dtbmv(CblasColMajor,
+                CBLAS_UPLO(uplo),
+                CBLAS_TRANSPOSE(transA),
+                CBLAS_DIAG(diag),
+                m,
+                k,
+                A,
+                lda,
+                x,
+                incx);
+}
+
+template <>
+inline void cblas_tbmv(rocblas_fill           uplo,
+                       rocblas_operation      transA,
+                       rocblas_diagonal       diag,
+                       rocblas_int            m,
+                       rocblas_int            k,
+                       rocblas_float_complex* A,
+                       rocblas_int            lda,
+                       rocblas_float_complex* x,
+                       rocblas_int            incx)
+{
+    cblas_ctbmv(CblasColMajor,
+                CBLAS_UPLO(uplo),
+                CBLAS_TRANSPOSE(transA),
+                CBLAS_DIAG(diag),
+                m,
+                k,
+                A,
+                lda,
+                x,
+                incx);
+}
+
+template <>
+inline void cblas_tbmv(rocblas_fill            uplo,
+                       rocblas_operation       transA,
+                       rocblas_diagonal        diag,
+                       rocblas_int             m,
+                       rocblas_int             k,
+                       rocblas_double_complex* A,
+                       rocblas_int             lda,
+                       rocblas_double_complex* x,
+                       rocblas_int             incx)
+{
+    cblas_ztbmv(CblasColMajor,
+                CBLAS_UPLO(uplo),
+                CBLAS_TRANSPOSE(transA),
+                CBLAS_DIAG(diag),
+                m,
+                k,
+                A,
+                lda,
+                x,
+                incx);
+}
+
 // trsv
 template <typename T>
 void cblas_trsv(rocblas_fill      uplo,
@@ -504,6 +938,68 @@ inline void cblas_trsv(rocblas_fill      uplo,
                 lda,
                 x,
                 incx);
+}
+
+// tpmv
+template <typename T>
+void cblas_tpmv(rocblas_fill      uplo,
+                rocblas_operation transA,
+                rocblas_diagonal  diag,
+                rocblas_int       m,
+                const T*          A,
+                T*                x,
+                rocblas_int       incx);
+
+template <>
+inline void cblas_tpmv(rocblas_fill      uplo,
+                       rocblas_operation transA,
+                       rocblas_diagonal  diag,
+                       rocblas_int       m,
+                       const float*      A,
+                       float*            x,
+                       rocblas_int       incx)
+{
+    cblas_stpmv(
+        CblasColMajor, CBLAS_UPLO(uplo), CBLAS_TRANSPOSE(transA), CBLAS_DIAG(diag), m, A, x, incx);
+}
+
+template <>
+inline void cblas_tpmv(rocblas_fill      uplo,
+                       rocblas_operation transA,
+                       rocblas_diagonal  diag,
+                       rocblas_int       m,
+                       const double*     A,
+                       double*           x,
+                       rocblas_int       incx)
+{
+    cblas_dtpmv(
+        CblasColMajor, CBLAS_UPLO(uplo), CBLAS_TRANSPOSE(transA), CBLAS_DIAG(diag), m, A, x, incx);
+}
+
+template <>
+inline void cblas_tpmv(rocblas_fill                 uplo,
+                       rocblas_operation            transA,
+                       rocblas_diagonal             diag,
+                       rocblas_int                  m,
+                       const rocblas_float_complex* A,
+                       rocblas_float_complex*       x,
+                       rocblas_int                  incx)
+{
+    cblas_ctpmv(
+        CblasColMajor, CBLAS_UPLO(uplo), CBLAS_TRANSPOSE(transA), CBLAS_DIAG(diag), m, A, x, incx);
+}
+
+template <>
+inline void cblas_tpmv(rocblas_fill                  uplo,
+                       rocblas_operation             transA,
+                       rocblas_diagonal              diag,
+                       rocblas_int                   m,
+                       const rocblas_double_complex* A,
+                       rocblas_double_complex*       x,
+                       rocblas_int                   incx)
+{
+    cblas_ztpmv(
+        CblasColMajor, CBLAS_UPLO(uplo), CBLAS_TRANSPOSE(transA), CBLAS_DIAG(diag), m, A, x, incx);
 }
 
 // trmv
@@ -559,6 +1055,134 @@ inline void cblas_trmv(rocblas_fill      uplo,
                 incx);
 }
 
+template <>
+inline void cblas_trmv(rocblas_fill                 uplo,
+                       rocblas_operation            transA,
+                       rocblas_diagonal             diag,
+                       rocblas_int                  m,
+                       const rocblas_float_complex* A,
+                       rocblas_int                  lda,
+                       rocblas_float_complex*       x,
+                       rocblas_int                  incx)
+{
+    cblas_ctrmv(CblasColMajor,
+                CBLAS_UPLO(uplo),
+                CBLAS_TRANSPOSE(transA),
+                CBLAS_DIAG(diag),
+                m,
+                A,
+                lda,
+                x,
+                incx);
+}
+
+template <>
+inline void cblas_trmv(rocblas_fill                  uplo,
+                       rocblas_operation             transA,
+                       rocblas_diagonal              diag,
+                       rocblas_int                   m,
+                       const rocblas_double_complex* A,
+                       rocblas_int                   lda,
+                       rocblas_double_complex*       x,
+                       rocblas_int                   incx)
+{
+    cblas_ztrmv(CblasColMajor,
+                CBLAS_UPLO(uplo),
+                CBLAS_TRANSPOSE(transA),
+                CBLAS_DIAG(diag),
+                m,
+                A,
+                lda,
+                x,
+                incx);
+}
+
+// sbmv
+template <typename T>
+void cblas_sbmv(rocblas_fill uplo,
+                rocblas_int  n,
+                rocblas_int  k,
+                T            alpha,
+                T*           A,
+                rocblas_int  lda,
+                T*           x,
+                rocblas_int  incx,
+                T            beta,
+                T*           y,
+                rocblas_int  incy);
+
+template <>
+inline void cblas_sbmv(rocblas_fill uplo,
+                       rocblas_int  n,
+                       rocblas_int  k,
+                       float        alpha,
+                       float*       A,
+                       rocblas_int  lda,
+                       float*       x,
+                       rocblas_int  incx,
+                       float        beta,
+                       float*       y,
+                       rocblas_int  incy)
+{
+    cblas_ssbmv(CblasColMajor, CBLAS_UPLO(uplo), n, k, alpha, A, lda, x, incx, beta, y, incy);
+}
+
+template <>
+inline void cblas_sbmv(rocblas_fill uplo,
+                       rocblas_int  n,
+                       rocblas_int  k,
+                       double       alpha,
+                       double*      A,
+                       rocblas_int  lda,
+                       double*      x,
+                       rocblas_int  incx,
+                       double       beta,
+                       double*      y,
+                       rocblas_int  incy)
+{
+    cblas_dsbmv(CblasColMajor, CBLAS_UPLO(uplo), n, k, alpha, A, lda, x, incx, beta, y, incy);
+}
+
+// spmv
+template <typename T>
+void cblas_spmv(rocblas_fill uplo,
+                rocblas_int  n,
+                T            alpha,
+                T*           A,
+                T*           x,
+                rocblas_int  incx,
+                T            beta,
+                T*           y,
+                rocblas_int  incy);
+
+template <>
+inline void cblas_spmv(rocblas_fill uplo,
+                       rocblas_int  n,
+                       float        alpha,
+                       float*       A,
+                       float*       x,
+                       rocblas_int  incx,
+                       float        beta,
+                       float*       y,
+                       rocblas_int  incy)
+{
+    cblas_sspmv(CblasColMajor, CBLAS_UPLO(uplo), n, alpha, A, x, incx, beta, y, incy);
+}
+
+template <>
+inline void cblas_spmv(rocblas_fill uplo,
+                       rocblas_int  n,
+                       double       alpha,
+                       double*      A,
+                       double*      x,
+                       rocblas_int  incx,
+                       double       beta,
+                       double*      y,
+                       rocblas_int  incy)
+{
+    cblas_dspmv(CblasColMajor, CBLAS_UPLO(uplo), n, alpha, A, x, incx, beta, y, incy);
+}
+
 // symv
 template <typename T>
 void cblas_symv(rocblas_fill uplo,
@@ -602,8 +1226,160 @@ inline void cblas_symv(rocblas_fill uplo,
     cblas_dsymv(CblasColMajor, CBLAS_UPLO(uplo), n, alpha, A, lda, x, incx, beta, y, incy);
 }
 
-// ger
+// blis flame symbols
+extern "C" {
+void csymv_(char*                  uplo,
+            int*                   n,
+            rocblas_float_complex* alpha,
+            rocblas_float_complex* A,
+            int*                   lda,
+            rocblas_float_complex* x,
+            int*                   incx,
+            rocblas_float_complex* beta,
+            rocblas_float_complex* y,
+            int*                   yinc);
+
+void zsymv_(char*                   uplo,
+            int*                    n,
+            rocblas_double_complex* alpha,
+            rocblas_double_complex* A,
+            int*                    lda,
+            rocblas_double_complex* x,
+            int*                    incx,
+            rocblas_double_complex* beta,
+            rocblas_double_complex* y,
+            int*                    yinc);
+}
+
+template <>
+inline void cblas_symv(rocblas_fill           uplo,
+                       rocblas_int            n,
+                       rocblas_float_complex  alpha,
+                       rocblas_float_complex* A,
+                       rocblas_int            lda,
+                       rocblas_float_complex* x,
+                       rocblas_int            incx,
+                       rocblas_float_complex  beta,
+                       rocblas_float_complex* y,
+                       rocblas_int            incy)
+{
+    char u = uplo == rocblas_fill_upper ? 'U' : 'L';
+    csymv_(&u, &n, &alpha, A, &lda, x, &incx, &beta, y, &incy);
+}
+
+template <>
+inline void cblas_symv(rocblas_fill            uplo,
+                       rocblas_int             n,
+                       rocblas_double_complex  alpha,
+                       rocblas_double_complex* A,
+                       rocblas_int             lda,
+                       rocblas_double_complex* x,
+                       rocblas_int             incx,
+                       rocblas_double_complex  beta,
+                       rocblas_double_complex* y,
+                       rocblas_int             incy)
+{
+    char u = uplo == rocblas_fill_upper ? 'U' : 'L';
+    zsymv_(&u, &n, &alpha, A, &lda, x, &incx, &beta, y, &incy);
+}
+
+// spr
+extern "C" {
+void cspr_(char*                  uplo,
+           int*                   n,
+           rocblas_float_complex* alpha,
+           rocblas_float_complex* x,
+           int*                   incx,
+           rocblas_float_complex* A);
+
+void zspr_(char*                   uplo,
+           int*                    n,
+           rocblas_double_complex* alpha,
+           rocblas_double_complex* x,
+           int*                    incx,
+           rocblas_double_complex* A);
+}
+
 template <typename T>
+void cblas_spr(rocblas_fill uplo, rocblas_int n, T alpha, T* x, rocblas_int incx, T* A);
+
+template <>
+inline void
+    cblas_spr(rocblas_fill uplo, rocblas_int n, float alpha, float* x, rocblas_int incx, float* A)
+{
+    cblas_sspr(CblasColMajor, CBLAS_UPLO(uplo), n, alpha, x, incx, A);
+}
+
+template <>
+inline void cblas_spr(
+    rocblas_fill uplo, rocblas_int n, double alpha, double* x, rocblas_int incx, double* A)
+{
+    cblas_dspr(CblasColMajor, CBLAS_UPLO(uplo), n, alpha, x, incx, A);
+}
+
+template <>
+inline void cblas_spr(rocblas_fill           uplo,
+                      rocblas_int            n,
+                      rocblas_float_complex  alpha,
+                      rocblas_float_complex* x,
+                      rocblas_int            incx,
+                      rocblas_float_complex* A)
+{
+    char u = uplo == rocblas_fill_upper ? 'U' : 'L';
+    cspr_(&u, &n, &alpha, x, &incx, A);
+}
+
+template <>
+inline void cblas_spr(rocblas_fill            uplo,
+                      rocblas_int             n,
+                      rocblas_double_complex  alpha,
+                      rocblas_double_complex* x,
+                      rocblas_int             incx,
+                      rocblas_double_complex* A)
+{
+    char u = uplo == rocblas_fill_upper ? 'U' : 'L';
+    zspr_(&u, &n, &alpha, x, &incx, A);
+}
+
+// spr2
+template <typename T>
+void cblas_spr2(rocblas_fill uplo,
+                rocblas_int  n,
+                T            alpha,
+                T*           x,
+                rocblas_int  incx,
+                T*           y,
+                rocblas_int  incy,
+                T*           A);
+
+template <>
+inline void cblas_spr2(rocblas_fill uplo,
+                       rocblas_int  n,
+                       float        alpha,
+                       float*       x,
+                       rocblas_int  incx,
+                       float*       y,
+                       rocblas_int  incy,
+                       float*       A)
+{
+    cblas_sspr2(CblasColMajor, CBLAS_UPLO(uplo), n, alpha, x, incx, y, incy, A);
+}
+
+template <>
+inline void cblas_spr2(rocblas_fill uplo,
+                       rocblas_int  n,
+                       double       alpha,
+                       double*      x,
+                       rocblas_int  incx,
+                       double*      y,
+                       rocblas_int  incy,
+                       double*      A)
+{
+    cblas_dspr2(CblasColMajor, CBLAS_UPLO(uplo), n, alpha, x, incx, y, incy, A);
+}
+
+// ger maps to ger, geru, gerc
+template <typename T, bool CONJ>
 void cblas_ger(rocblas_int m,
                rocblas_int n,
                T           alpha,
@@ -615,37 +1391,93 @@ void cblas_ger(rocblas_int m,
                rocblas_int lda);
 
 template <>
-inline void cblas_ger(rocblas_int m,
-                      rocblas_int n,
-                      float       alpha,
-                      float*      x,
-                      rocblas_int incx,
-                      float*      y,
-                      rocblas_int incy,
-                      float*      A,
-                      rocblas_int lda)
+inline void cblas_ger<float, false>(rocblas_int m,
+                                    rocblas_int n,
+                                    float       alpha,
+                                    float*      x,
+                                    rocblas_int incx,
+                                    float*      y,
+                                    rocblas_int incy,
+                                    float*      A,
+                                    rocblas_int lda)
 {
     cblas_sger(CblasColMajor, m, n, alpha, x, incx, y, incy, A, lda);
 }
 
 template <>
-inline void cblas_ger(rocblas_int m,
-                      rocblas_int n,
-                      double      alpha,
-                      double*     x,
-                      rocblas_int incx,
-                      double*     y,
-                      rocblas_int incy,
-                      double*     A,
-                      rocblas_int lda)
+inline void cblas_ger<double, false>(rocblas_int m,
+                                     rocblas_int n,
+                                     double      alpha,
+                                     double*     x,
+                                     rocblas_int incx,
+                                     double*     y,
+                                     rocblas_int incy,
+                                     double*     A,
+                                     rocblas_int lda)
 {
     cblas_dger(CblasColMajor, m, n, alpha, x, incx, y, incy, A, lda);
 }
 
+template <>
+inline void cblas_ger<rocblas_float_complex, false>(rocblas_int            m,
+                                                    rocblas_int            n,
+                                                    rocblas_float_complex  alpha,
+                                                    rocblas_float_complex* x,
+                                                    rocblas_int            incx,
+                                                    rocblas_float_complex* y,
+                                                    rocblas_int            incy,
+                                                    rocblas_float_complex* A,
+                                                    rocblas_int            lda)
+{
+    cblas_cgeru(CblasColMajor, m, n, &alpha, x, incx, y, incy, A, lda);
+}
+
+template <>
+inline void cblas_ger<rocblas_double_complex, false>(rocblas_int             m,
+                                                     rocblas_int             n,
+                                                     rocblas_double_complex  alpha,
+                                                     rocblas_double_complex* x,
+                                                     rocblas_int             incx,
+                                                     rocblas_double_complex* y,
+                                                     rocblas_int             incy,
+                                                     rocblas_double_complex* A,
+                                                     rocblas_int             lda)
+{
+    cblas_zgeru(CblasColMajor, m, n, &alpha, x, incx, y, incy, A, lda);
+}
+
+template <>
+inline void cblas_ger<rocblas_float_complex, true>(rocblas_int            m,
+                                                   rocblas_int            n,
+                                                   rocblas_float_complex  alpha,
+                                                   rocblas_float_complex* x,
+                                                   rocblas_int            incx,
+                                                   rocblas_float_complex* y,
+                                                   rocblas_int            incy,
+                                                   rocblas_float_complex* A,
+                                                   rocblas_int            lda)
+{
+    cblas_cgerc(CblasColMajor, m, n, &alpha, x, incx, y, incy, A, lda);
+}
+
+template <>
+inline void cblas_ger<rocblas_double_complex, true>(rocblas_int             m,
+                                                    rocblas_int             n,
+                                                    rocblas_double_complex  alpha,
+                                                    rocblas_double_complex* x,
+                                                    rocblas_int             incx,
+                                                    rocblas_double_complex* y,
+                                                    rocblas_int             incy,
+                                                    rocblas_double_complex* A,
+                                                    rocblas_int             lda)
+{
+    cblas_zgerc(CblasColMajor, m, n, &alpha, x, incx, y, incy, A, lda);
+}
+
 // syr
 template <typename T>
-void cblas_syr(
-    rocblas_fill uplo, rocblas_int n, T alpha, T* x, rocblas_int incx, T* A, rocblas_int lda);
+inline void cblas_syr(
+    rocblas_fill uplo, rocblas_int n, T alpha, T* xa, rocblas_int incx, T* A, rocblas_int lda);
 
 template <>
 inline void cblas_syr(rocblas_fill uplo,
@@ -669,6 +1501,132 @@ inline void cblas_syr(rocblas_fill uplo,
                       rocblas_int  lda)
 {
     cblas_dsyr(CblasColMajor, CBLAS_UPLO(uplo), n, alpha, x, incx, A, lda);
+}
+
+// blis flame symbols
+extern "C" {
+void csyr_(char*                  uplo,
+           int*                   n,
+           rocblas_float_complex* alpha,
+           rocblas_float_complex* x,
+           int*                   incx,
+           rocblas_float_complex* a,
+           int*                   lda);
+void zsyr_(char*                   uplo,
+           int*                    n,
+           rocblas_double_complex* alpha,
+           rocblas_double_complex* x,
+           int*                    incx,
+           rocblas_double_complex* a,
+           int*                    lda);
+}
+
+template <>
+inline void cblas_syr(rocblas_fill           uplo,
+                      rocblas_int            n,
+                      rocblas_float_complex  alpha,
+                      rocblas_float_complex* xa,
+                      rocblas_int            incx,
+                      rocblas_float_complex* A,
+                      rocblas_int            lda)
+{
+    char u = uplo == rocblas_fill_upper ? 'U' : 'L';
+    csyr_(&u, &n, &alpha, xa, &incx, A, &lda);
+}
+
+template <>
+inline void cblas_syr(rocblas_fill            uplo,
+                      rocblas_int             n,
+                      rocblas_double_complex  alpha,
+                      rocblas_double_complex* xa,
+                      rocblas_int             incx,
+                      rocblas_double_complex* A,
+                      rocblas_int             lda)
+{
+    char u = uplo == rocblas_fill_upper ? 'U' : 'L';
+    zsyr_(&u, &n, &alpha, xa, &incx, A, &lda);
+}
+
+/* working cpu template code in case flame symbols disappear
+// cblas_syr doesn't have complex support so implementation below for float/double complex
+template <typename T>
+void cblas_syr(
+    rocblas_fill uplo, rocblas_int n, T alpha, T* xa, rocblas_int incx, T* A, rocblas_int lda)
+{
+    if(n <= 0)
+        return;
+
+    T* x = (incx < 0) ? xa - ptrdiff_t(incx) * (n - 1) : xa;
+
+    if(uplo == rocblas_fill_upper)
+    {
+        for(int j = 0; j < n; ++j)
+        {
+            T tmp = alpha * x[j * incx];
+            for(int i = 0; i <= j; ++i)
+            {
+                A[i + j * lda] = A[i + j * lda] + x[i * incx] * tmp;
+            }
+        }
+    }
+    else
+    {
+        for(int j = 0; j < n; ++j)
+        {
+            T tmp = alpha * x[j * incx];
+            for(int i = j; i < n; ++i)
+            {
+                A[i + j * lda] = A[i + j * lda] + x[i * incx] * tmp;
+            }
+        }
+    }
+}
+*/
+
+// hbmv
+template <typename T>
+void cblas_hbmv(rocblas_fill uplo,
+                rocblas_int  n,
+                rocblas_int  k,
+                T            alpha,
+                T*           A,
+                rocblas_int  lda,
+                T*           x,
+                rocblas_int  incx,
+                T            beta,
+                T*           y,
+                rocblas_int  incy);
+
+template <>
+inline void cblas_hbmv(rocblas_fill           uplo,
+                       rocblas_int            n,
+                       rocblas_int            k,
+                       rocblas_float_complex  alpha,
+                       rocblas_float_complex* A,
+                       rocblas_int            lda,
+                       rocblas_float_complex* x,
+                       rocblas_int            incx,
+                       rocblas_float_complex  beta,
+                       rocblas_float_complex* y,
+                       rocblas_int            incy)
+{
+    cblas_chbmv(CblasColMajor, CBLAS_UPLO(uplo), n, k, &alpha, A, lda, x, incx, &beta, y, incy);
+}
+
+template <>
+inline void cblas_hbmv(rocblas_fill            uplo,
+                       rocblas_int             n,
+                       rocblas_int             k,
+                       rocblas_double_complex  alpha,
+                       rocblas_double_complex* A,
+                       rocblas_int             lda,
+                       rocblas_double_complex* x,
+                       rocblas_int             incx,
+                       rocblas_double_complex  beta,
+                       rocblas_double_complex* y,
+                       rocblas_int             incy)
+{
+    cblas_zhbmv(CblasColMajor, CBLAS_UPLO(uplo), n, k, &alpha, A, lda, x, incx, &beta, y, incy);
 }
 
 // hemv
@@ -712,6 +1670,72 @@ inline void cblas_hemv(rocblas_fill            uplo,
                        rocblas_int             incy)
 {
     cblas_zhemv(CblasColMajor, CBLAS_UPLO(uplo), n, &alpha, A, lda, x, incx, &beta, y, incy);
+}
+
+// hpmv
+template <typename T>
+void cblas_hpmv(rocblas_fill uplo,
+                rocblas_int  n,
+                T            alpha,
+                T*           A,
+                T*           x,
+                rocblas_int  incx,
+                T            beta,
+                T*           y,
+                rocblas_int  incy);
+
+template <>
+inline void cblas_hpmv(rocblas_fill           uplo,
+                       rocblas_int            n,
+                       rocblas_float_complex  alpha,
+                       rocblas_float_complex* A,
+                       rocblas_float_complex* x,
+                       rocblas_int            incx,
+                       rocblas_float_complex  beta,
+                       rocblas_float_complex* y,
+                       rocblas_int            incy)
+{
+    cblas_chpmv(CblasColMajor, CBLAS_UPLO(uplo), n, &alpha, A, x, incx, &beta, y, incy);
+}
+
+template <>
+inline void cblas_hpmv(rocblas_fill            uplo,
+                       rocblas_int             n,
+                       rocblas_double_complex  alpha,
+                       rocblas_double_complex* A,
+                       rocblas_double_complex* x,
+                       rocblas_int             incx,
+                       rocblas_double_complex  beta,
+                       rocblas_double_complex* y,
+                       rocblas_int             incy)
+{
+    cblas_zhpmv(CblasColMajor, CBLAS_UPLO(uplo), n, &alpha, A, x, incx, &beta, y, incy);
+}
+
+// hpr
+template <typename T, typename U>
+void cblas_hpr(rocblas_fill uplo, rocblas_int n, U alpha, T* x, rocblas_int incx, T* A);
+
+template <>
+inline void cblas_hpr(rocblas_fill           uplo,
+                      rocblas_int            n,
+                      float                  alpha,
+                      rocblas_float_complex* x,
+                      rocblas_int            incx,
+                      rocblas_float_complex* A)
+{
+    cblas_chpr(CblasColMajor, CBLAS_UPLO(uplo), n, alpha, x, incx, A);
+}
+
+template <>
+inline void cblas_hpr(rocblas_fill            uplo,
+                      rocblas_int             n,
+                      double                  alpha,
+                      rocblas_double_complex* x,
+                      rocblas_int             incx,
+                      rocblas_double_complex* A)
+{
+    cblas_zhpr(CblasColMajor, CBLAS_UPLO(uplo), n, alpha, x, incx, A);
 }
 
 /*

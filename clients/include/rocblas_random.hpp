@@ -1,5 +1,5 @@
 /* ************************************************************************
- * Copyright 2018-2019 Advanced Micro Devices, Inc.
+ * Copyright 2018-2020 Advanced Micro Devices, Inc.
  * ************************************************************************ */
 
 #ifndef ROCBLAS_RANDOM_H_
@@ -31,9 +31,8 @@ class rocblas_nan_rng
     static T random_nan_data()
     {
         static_assert(sizeof(UINT_T) == sizeof(T), "Type sizes do not match");
-        union u_t
+        union
         {
-            u_t() {}
             UINT_T u;
             T      fp;
         } x;
@@ -46,7 +45,7 @@ class rocblas_nan_rng
 
 public:
     // Random integer
-    template <typename T, typename std::enable_if<std::is_integral<T>{}, int>::type = 0>
+    template <typename T, std::enable_if_t<std::is_integral<T>{}, int> = 0>
     explicit operator T()
     {
         return std::uniform_int_distribution<T>{}(rocblas_rng);
@@ -64,7 +63,7 @@ public:
         return random_nan_data<float, uint32_t, 23, 8>();
     }
 
-    // Random NaN half (non-template rocblas_half takes precedence over integer template above)
+    // Random NaN half
     explicit operator rocblas_half()
     {
         return random_nan_data<rocblas_half, uint16_t, 10, 5>();
@@ -118,7 +117,7 @@ inline rocblas_double_complex random_generator<rocblas_double_complex>()
 template <>
 inline rocblas_half random_generator<rocblas_half>()
 {
-    return float_to_half(std::uniform_int_distribution<int>(-2, 2)(rocblas_rng));
+    return rocblas_half(std::uniform_int_distribution<int>(-2, 2)(rocblas_rng));
 };
 
 // for rocblas_bfloat16, generate float, and convert to rocblas_bfloat16

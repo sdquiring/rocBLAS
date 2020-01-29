@@ -1,12 +1,14 @@
 /* ************************************************************************
- * Copyright 2018-2019 Advanced Micro Devices, Inc.
+ * Copyright 2018-2020 Advanced Micro Devices, Inc.
  * ************************************************************************ */
 
 #ifndef _TESTING_UTILITY_H_
 #define _TESTING_UTILITY_H_
 
+#include "logging.h"
 #include "rocblas.h"
 #include "rocblas_test.hpp"
+#include "utility.h"
 #include <cstdio>
 #include <iostream>
 #include <string>
@@ -65,26 +67,50 @@ double get_time_us_sync(hipStream_t stream);
 // Return path of this executable
 std::string rocblas_exepath();
 
-/* ============================================================================================ */
-/*! \brief  print vector */
-template <typename T>
-inline void rocblas_print_vector(std::vector<T>& A, size_t M, size_t N, size_t lda)
+class rocblas_print_helper
 {
-    if(std::is_same<T, float>{})
-        std::cout << "vec[float]: ";
-    else if(std::is_same<T, double>{})
-        std::cout << "vec[double]: ";
-    else if(std::is_same<T, rocblas_half>{})
-        std::cout << "vec[rocblas_half]: ";
+public:
+    /************************************************************************************
+     * Print values
+     ************************************************************************************/
+    // Default output
+    template <typename T>
+    static void print_value(std::ostream& os, const T& x)
+    {
+        os << x;
+    }
 
-    for(size_t i = 0; i < M; ++i)
-        for(size_t j = 0; j < N; ++j)
-            std::cout << (std::is_same<T, rocblas_half>{} ? half_to_float(A[i + j * lda])
-                                                          : A[i + j * lda])
-                      << ", ";
+    // Floating-point output
+    static void print_value(std::ostream& os, double x)
+    {
+        if(std::isnan(x))
+            os << ".nan";
+        else if(std::isinf(x))
+            os << (x < 0 ? "-.inf" : ".inf");
+        else
+        {
+            char s[32];
+            snprintf(s, sizeof(s) - 2, "%.17g", x);
 
-    std::cout << std::endl;
-}
+            // If no decimal point or exponent, append .0
+            char* end = s + strcspn(s, ".eE");
+            if(!*end)
+                strcpy(end, ".0");
+            os << s;
+        }
+    }
+
+    // Complex output
+    template <typename T>
+    static void print_value(std::ostream& os, const rocblas_complex_num<T>& x)
+    {
+        os << "'(";
+        print_value(os, std::real(x));
+        os << ",";
+        print_value(os, std::imag(x));
+        os << ")'";
+    }
+};
 
 /* ============================================================================================ */
 /*! \brief  Debugging purpose, print out CPU and GPU result matrix, not valid in complex number  */
@@ -101,6 +127,21 @@ inline void rocblas_print_matrix(
                    CPU_result[j + i * lda],
                    GPU_result[j + i * lda]);
         }
+}
+
+template <typename T>
+void rocblas_print_matrix(const char* name, T* A, rocblas_int m, rocblas_int n, rocblas_int lda)
+{
+    printf("---------- %s ----------\n", name);
+    for(int i = 0; i < m; i++)
+    {
+        for(int j = 0; j < n; j++)
+        {
+            rocblas_print_helper::print_value(std::cout, A[i + j * lda]);
+            printf(" ");
+        }
+        printf("\n");
+    }
 }
 
 #endif
